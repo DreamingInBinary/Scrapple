@@ -31,8 +31,11 @@ Simply run `ruby scrapple.rb`. Ensure you're at that location on your machine as
 ## Current Progress
 
 - [X] Get all frameworks listed
+- [ ] Iterate through all of the frameworks to...
 - [ ] Parse the framework's symbols one by one
 - [ ] Output it all to .json
+- [ ] Create a `CLI` for it
+- [ ] Release it as a Ruby gem
 
 ### FAQ
 
