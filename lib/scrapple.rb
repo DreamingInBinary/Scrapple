@@ -21,8 +21,11 @@ class Scrapple < Kimurai::Base
   }
   
   def parse(response, url:, data: {})
+    browser.execute_script("window.scrollBy(0,1000)") ; sleep 1
+    response = browser.current_response
+
     # For testing, set this to 1 to only crawl the first frameowk
-    onlySearchFirst = 0
+    onlySearchFirst = 1
     xpathToken = "//*[@id=\"main\"]/section/ul/li/a"
 
     found = response.xpath(xpathToken).length
@@ -49,23 +52,54 @@ class Scrapple < Kimurai::Base
   end
 
   def parse_framework(response, url:, data: {})
+    browser.execute_script("window.scrollBy(0,5000)") ; sleep 1
+    response = browser.current_response
+
     puts "Parsing symbols for #{url.to_s}, #{response.css("div.link-block.topic").count} potential symbols found...."
 
+    <<~aid
+    Here we can find four different things:
+    - API Reference: These link to more symbols. We need to visit that link and crawl it in parse_symbol
+    -
+    aid
+
     response.css("div.link-block.topic").each do |apiRef|
+      next unless apiRef.css("title").length > 0
+
       if apiRef.css("title").select{|link| link.text == "API Reference"}.length > 0
-          framework_link = apiRef.css("a")[0]['href']
-          puts "#{framework_link.inspect}"
+          framework_link = 'https://developer.apple.com' + apiRef.css("a")[0]['href']
+          request_to :parse_symbol, url: framework_link
       end
 
       rescue StandardError => e
-        puts "Failed parsing a symbol for #{url.to_s}: (#{e.inspect}), moving on."
+        puts "Failed parsing a framework symbol for #{url.to_s}: (#{e.inspect}), moving on."
     end
 
     puts "\n\n"
   end
 
   def parse_symbol(response, url:, data: {})
-    # TODO
+    browser.execute_script("window.scrollBy(0,2000)") ; sleep 1
+    response = browser.current_response
+
+    framework_symbols = {}
+    puts "Crawling API Reference for #{url.to_s}..."
+
+    response.css("div.link-block.topic").each do |symbol|
+      if symbol.css("a.link.has-adjacent-elements").length > 0
+        matched_symbol = {}
+        matched_symbol[:type] = symbol.css("span.decorator")[0].text
+        matched_symbol[:name] = symbol.css("span.identifier")[0].text
+        matched_symbol[:overview] = symbol.css("div.content")[0].text
+        puts "Symbol parsed: #{matched_symbol.inspect}"
+        framework_symbols["#{matched_symbol[:name]}"] = matched_symbol
+      end
+    end
+
+    rescue StandardError => e
+        puts "Failed parsing a symbol for #{url.to_s}: (#{e.inspect}), moving on."
+
+    save_to "results.json", framework_symbols, format: :pretty_json
   end
   
 end
