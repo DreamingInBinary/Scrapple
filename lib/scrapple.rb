@@ -7,59 +7,48 @@ require 'parallel'
 require 'kimurai'
 require 'nokogiri'
 require 'odyssey'
-require 'json'
-require 'byebug'
 
-# Next up, see why symbols aren't always found. Do I need to use xpath?
+# TODO: Sometimes, some frameworks are never found even with the same code that does find them.
+# TODO: Get xpath for symbols of each framework.
 
 class Scrapple < Kimurai::Base
   @engine = :selenium_firefox
   @start_urls = ['https://developer.apple.com/documentation/technologies']
   @config = {
-    user_agent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 11.2; rv:86.0) Gecko/20100101 Firefox/86.0",
+    disable_images: true,
     skip_duplicate_requests: true,
     retry_request_errors: [Net::HTTPNotFound]
   }
   
-  
   def parse(response, url:, data: {})
-    #File.open("tmp.json","w") do |f|
-    #  f.write("{\"frameworks\": {")
-    #end
-    
-    requestOne = 1
+    # For testing, set this to 1 to only crawl the first frameowk
+    onlySearchFirst = 0
+    xpathToken = "//*[@id=\"main\"]/section/ul/li/a"
 
-    # For testing, hit only the first match
-    if requestOne == 1
-      framework = response.css("ul.list li")[13] #AppKit
-      framework_data = {}
-      framework_data[:name] = framework.css("div.card__content").css("p").text
-      framework_data[:description] = framework.css("div.card__content").css("div.card__abstract").text
-      framework_data[:href] = 'https://developer.apple.com' + framework.css("a.card")[0]['href']
-        
-      request_to :parse_framework, url: framework_data[:href]
-    else
-      puts "\n\nKicking off frameworks crawl, #{response.css("ul.list li").length} found...\n\n"
-      response.css("ul.list li").each do |framework|
-        framework_data = {}
-        framework_data[:name] = framework.css("div.card__content").css("p").text
-        framework_data[:description] = framework.css("div.card__content").css("div.card__abstract").text
-        framework_data[:href] = 'https://developer.apple.com' + framework.css("a.card")[0]['href']
-            
-        #File.open("tmp.json","a") do |f|
-        #  f.write("\"#{framework_data[:name]}\":" + "#{framework_data.to_json}" + ',')
-        #end
-        #puts "Request to #{framework_data[:href].to_s}"
-        request_to :parse_framework, url: framework_data[:href]
-      
-        rescue StandardError => e
-          puts "Failed a request for the #{framework_data[:name].to_s} framework: (#{e.inspect}), moving on."
-      end
+    found = response.xpath(xpathToken).length
+    puts "Found #{found} frameworks}"
+
+    if found < 1 
+      puts "Returning since no frameworks were found."
+      return 
     end
+
+    response.xpath(xpathToken).each do |framework|
+      framework_data = {}
+      framework_data[:name] = framework.css("div.card__content p").text
+      framework_data[:description] = framework.css("div.card__abstract").text
+      framework_data[:href] = 'https://developer.apple.com' + framework['href']
+
+      save_to "results.json", framework_data, format: :pretty_json
+
+      request_to :parse_framework, url: framework_data[:href]
+
+      break if onlySearchFirst == 1
+    end
+
   end
 
   def parse_framework(response, url:, data: {})
-    puts "\n\n"
     puts "Parsing symbols for #{url.to_s}, #{response.css("div.link-block.topic").count} potential symbols found...."
 
     response.css("div.link-block.topic").each do |apiRef|

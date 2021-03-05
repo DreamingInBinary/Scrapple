@@ -9,7 +9,6 @@ GEM
       zeitwerk (~> 2.3)
     addressable (2.7.0)
       public_suffix (>= 2.0.2, < 5.0)
-    byebug (11.1.3)
     capybara (3.35.3)
       addressable
       mini_mime (>= 0.1.3)
@@ -117,7 +116,6 @@ PLATFORMS
   universal-darwin-20
 
 DEPENDENCIES
-  byebug
   kimurai
   nokogiri
   odyssey
