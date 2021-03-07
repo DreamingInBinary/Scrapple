@@ -8,8 +8,9 @@ require 'kimurai'
 require 'nokogiri'
 require 'odyssey'
 
-# TODO: Sometimes, some frameworks are never found even with the same code that does find them.
-# TODO: Get xpath for symbols of each framework.
+# All of Apple's docs do a request for json, which makes all of this easier.
+# This current code gets all of the framework json, and from there it's just
+# A matter of parsing that and getting the docs recursively for each.
 
 class Scrapple < Kimurai::Base
   @engine = :selenium_firefox
@@ -39,12 +40,16 @@ class Scrapple < Kimurai::Base
     response.xpath(xpathToken).each do |framework|
       framework_data = {}
       framework_data[:name] = framework.css("div.card__content p").text
-      framework_data[:description] = framework.css("div.card__abstract").text
-      framework_data[:href] = 'https://developer.apple.com' + framework['href']
+      framework_data[:description] = framework.css("div.card__abstract").text 
+      framework_data[:href] = framework['href']
+      clean_href = framework_data[:href].downcase
+      clean_href = clean_href.to_s
+      clean_href.gsub!(" ","_")
+      framework_data[:href_json] = 'https://developer.apple.com/tutorials/data' + clean_href + '.json'
 
       save_to "results.json", framework_data, format: :pretty_json
 
-      request_to :parse_framework, url: framework_data[:href]
+      #request_to :parse_framework, url: framework_data[:href]
 
       break if onlySearchFirst == 1
     end
