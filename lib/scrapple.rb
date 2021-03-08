@@ -7,6 +7,7 @@ require 'parallel'
 require 'kimurai'
 require 'nokogiri'
 require 'odyssey'
+require 'json'
 
 # All of Apple's docs do a request for json, which makes all of this easier.
 # This current code gets all of the framework json, and from there it's just
@@ -14,7 +15,7 @@ require 'odyssey'
 
 class Scrapple < Kimurai::Base
   @engine = :selenium_firefox
-  @start_urls = ['https://developer.apple.com/documentation/technologies']
+  @start_urls = ['https://developer.apple.com/tutorials/data/documentation/technologies.json']
   @config = {
     disable_images: true,
     skip_duplicate_requests: true,
@@ -22,38 +23,28 @@ class Scrapple < Kimurai::Base
   }
   
   def parse(response, url:, data: {})
-    browser.execute_script("window.scrollBy(0,1000)") ; sleep 1
-    response = browser.current_response
+    
+    framework_data = JSON.parse(response.css("div#json")[0])["references"]
+    sorted_frameworks = Array.new
 
-    # For testing, set this to 1 to only crawl the first frameowk
-    onlySearchFirst = 1
-    xpathToken = "//*[@id=\"main\"]/section/ul/li/a"
+    framework_data.each do |key, value|
+      if value.has_key?("title") && value.has_key?("abstract")
+        framework_data = {}
+        framework_data["name"] = value["title"]
+        framework_data["href"] = value['url']
+        framework_data["descriptions"] = value["abstract"][0]["text"]
+        framework_data["href_json"] = 'https://developer.apple.com/tutorials/data' + "#{framework_data["href"]}" + '.json'
+        sorted_frameworks.push(framework_data)
 
-    found = response.xpath(xpathToken).length
-    puts "Found #{found} frameworks}"
-
-    if found < 1 
-      puts "Returning since no frameworks were found."
-      return 
+        #save_to "results.json", framework_data, format: :pretty_json
+        #request_to :parse_framework, url: framework_data[:href]
+      end 
     end
 
-    response.xpath(xpathToken).each do |framework|
-      framework_data = {}
-      framework_data[:name] = framework.css("div.card__content p").text
-      framework_data[:description] = framework.css("div.card__abstract").text 
-      framework_data[:href] = framework['href']
-      clean_href = framework_data[:href].downcase
-      clean_href = clean_href.to_s
-      clean_href.gsub!(" ","_")
-      framework_data[:href_json] = 'https://developer.apple.com/tutorials/data' + clean_href + '.json'
-
-      save_to "results.json", framework_data, format: :pretty_json
-
-      #request_to :parse_framework, url: framework_data[:href]
-
-      break if onlySearchFirst == 1
+    sorted_frameworks.sort_by! { |topic| topic["name"].downcase }
+    sorted_frameworks.each do |val|
+      save_to "results.json", val, format: :pretty_json
     end
-
   end
 
   def parse_framework(response, url:, data: {})
