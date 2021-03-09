@@ -9,13 +9,11 @@ require 'nokogiri'
 require 'odyssey'
 require 'json'
 
-# Gets the top level symbols of all frameworks. For example, it'll get UIKit -> UILabel, but not UILabel's instance methods or properties.
+# Get all of all Apple's articles from their docs.
 
-# Next up: Need to dive into classes next and parse all of their symbols
-# Look at UIKit and see what link UILabel has
-# Then save off articles if it's not a pain
+# Last up before launch: Fix articles *with* articles - Use MetricKit to test
 
-class Scrapple < Kimurai::Base
+class ScrappleArticles < Kimurai::Base
   @engine = :selenium_firefox
   @start_urls = ['https://developer.apple.com/tutorials/data/documentation/technologies.json']
   @config = {
@@ -26,7 +24,7 @@ class Scrapple < Kimurai::Base
   
   def parse(response, url:, data: {})
     
-    scrape_test_only = 1
+    scrape_test_only = 0
     framework_data = JSON.parse(response.css("div#json")[0])["references"]
     sorted_frameworks = Array.new
 
@@ -47,8 +45,8 @@ class Scrapple < Kimurai::Base
     frameworks_hash = {}
     sorted_frameworks.sort_by! { |topic| topic["name"].downcase }
     sorted_frameworks.each do |f|
-      file_name = sanitize_filename f["name"]
-      f_hash = {"docs":{}}
+      file_name = sanitize_filename "articles_#{f["name"]}"
+      f_hash = {"articles":{}}
       File.write("#{file_name}.json", JSON.dump(f_hash))
     end
 
@@ -80,18 +78,22 @@ class Scrapple < Kimurai::Base
 
     # Append to current json
     file_name = sanitize_filename f_name
-    current_json = File.read("#{file_name}.json")
+    current_json = File.read("articles_#{file_name}.json")
     framework_hash = JSON.parse(current_json)
 
-    # Save any symbols, the easy part
-    symbols = stripped_keys.select { |symbol| (symbol["kind"] || "").downcase == "symbol" }
+    # Find any existing articles on this page
+    symbols = stripped_keys.select { |symbol| (symbol["kind"] || "").downcase == "article" }
     symbols.each do |symbol|
       next unless (symbol["title"] || "") != "" && symbol["title"] != f_name
-      framework_hash["docs"][symbol["title"]] = symbol
+      framework_hash["articles"][symbol["title"]] = symbol
+
+      # They might have articles within articles
+      puts "🗞 -> 🔎 -> #{f_name} checking articles in article to #{symbol["url"].to_s}"
+      request_to :parse_framework, url: 'https://developer.apple.com/tutorials/data' + symbol["url"].to_s + '.json', data: { name: f_name }
     end 
 
     # Save back to json
-    File.write("#{file_name}.json", JSON.dump(framework_hash))
+    File.write("articles_#{file_name}.json", JSON.dump(framework_hash))
 
     # Crawl collectionGroup recursively
     collection_groups = stripped_keys.select { |cg| (cg["role"] || "").downcase == "collectiongroup" }
@@ -111,4 +113,4 @@ class Scrapple < Kimurai::Base
   
 end
 
-Scrapple.crawl!
+ScrappleArticles.crawl!
