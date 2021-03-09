@@ -13,6 +13,8 @@ require 'json'
 # This current code gets all of the framework json, and from there it's just
 # A matter of parsing that and getting the docs recursively for each.
 
+# Next up: Get docs appending to array correctly
+
 class Scrapple < Kimurai::Base
   @engine = :selenium_firefox
   @start_urls = ['https://developer.apple.com/tutorials/data/documentation/technologies.json']
@@ -24,9 +26,11 @@ class Scrapple < Kimurai::Base
   
   def parse(response, url:, data: {})
     
+    scrape_accelerate_only = 1
     framework_data = JSON.parse(response.css("div#json")[0])["references"]
     sorted_frameworks = Array.new
 
+    # Find every framework to crawl
     framework_data.each do |key, value|
       if value.has_key?("title") && value.has_key?("abstract")
         framework_data = {}
@@ -34,68 +38,57 @@ class Scrapple < Kimurai::Base
         framework_data["href"] = value['url']
         framework_data["descriptions"] = value["abstract"][0]["text"]
         framework_data["href_json"] = 'https://developer.apple.com/tutorials/data' + "#{framework_data["href"]}" + '.json'
+        framework_data["docs"] = {}
         sorted_frameworks.push(framework_data)
-
-        #save_to "results.json", framework_data, format: :pretty_json
-        #request_to :parse_framework, url: framework_data[:href]
       end 
     end
 
+    # Sort them by name and save off to json to append later
+    frameworks_hash = {}
     sorted_frameworks.sort_by! { |topic| topic["name"].downcase }
     sorted_frameworks.each do |val|
-      save_to "results.json", val, format: :pretty_json
+      frameworks_hash[val["name"]] = val
     end
+    File.write('results.json', JSON.dump(frameworks_hash))
+
+    # Begin crawl
+    if scrape_accelerate_only
+      test_data = sorted_frameworks.select { |data| data["name"] == "Contacts UI" }[0]
+      if test_data.empty? == false 
+        request_to :parse_framework, url: test_data["href_json"].to_s, data: { name: test_data["name"] }
+      end
+    else
+
+    end
+
   end
 
   def parse_framework(response, url:, data: {})
-    browser.execute_script("window.scrollBy(0,5000)") ; sleep 1
-    response = browser.current_response
+    # Get all role:symbol
+    # Get all role:collectionGroup to deep search
 
-    puts "Parsing symbols for #{url.to_s}, #{response.css("div.link-block.topic").count} potential symbols found...."
+    # Parse out response json, strip uselss keys
+    framework_json = JSON.parse(response.css("div#json")[0])["references"]
+    stripped_keys = framework_json.map { |k,v| v }
 
-    <<~aid
-    Here we can find four different things:
-    - API Reference: These link to more symbols. We need to visit that link and crawl it in parse_symbol
-    -
-    aid
+    # Append to current json
+    current_json = File.read("results.json")
+    frameworks_hash = JSON.parse(current_json)
+    framework_hash = frameworks_hash[data[:name]]
 
-    response.css("div.link-block.topic").each do |apiRef|
-      next unless apiRef.css("title").length > 0
+    # Save any symbols
+    symbols = stripped_keys.select { |symbol| symbol["kind"].downcase == "symbol" }
+    symbols.each do |symbol|
+      framework_hash["docs"][symbol["title"]] = symbol
+    end 
 
-      if apiRef.css("title").select{|link| link.text == "API Reference"}.length > 0
-          framework_link = 'https://developer.apple.com' + apiRef.css("a")[0]['href']
-          request_to :parse_symbol, url: framework_link
-      end
-
-      rescue StandardError => e
-        puts "Failed parsing a framework symbol for #{url.to_s}: (#{e.inspect}), moving on."
-    end
-
-    puts "\n\n"
+    # Save back to json
+    frameworks_hash[data[:name]] = framework_hash
+    File.write('results.json', JSON.dump(frameworks_hash))
   end
 
   def parse_symbol(response, url:, data: {})
-    browser.execute_script("window.scrollBy(0,2000)") ; sleep 1
-    response = browser.current_response
 
-    framework_symbols = {}
-    puts "Crawling API Reference for #{url.to_s}..."
-
-    response.css("div.link-block.topic").each do |symbol|
-      if symbol.css("a.link.has-adjacent-elements").length > 0
-        matched_symbol = {}
-        matched_symbol[:type] = symbol.css("span.decorator")[0].text
-        matched_symbol[:name] = symbol.css("span.identifier")[0].text
-        matched_symbol[:overview] = symbol.css("div.content")[0].text
-        puts "Symbol parsed: #{matched_symbol.inspect}"
-        framework_symbols["#{matched_symbol[:name]}"] = matched_symbol
-      end
-    end
-
-    rescue StandardError => e
-        puts "Failed parsing a symbol for #{url.to_s}: (#{e.inspect}), moving on."
-
-    save_to "results.json", framework_symbols, format: :pretty_json
   end
   
 end
