@@ -11,7 +11,7 @@ require 'json'
 
 # Get all of all Apple's articles from their docs.
 
-# Last up before launch: Fix articles *with* articles - Use MetricKit to test
+# Last up before launch: Test with collection groups
 
 class ScrappleArticles < Kimurai::Base
   @engine = :selenium_firefox
@@ -24,7 +24,7 @@ class ScrappleArticles < Kimurai::Base
   
   def parse(response, url:, data: {})
     
-    scrape_test_only = 0
+    scrape_test_only = 1
     framework_data = JSON.parse(response.css("div#json")[0])["references"]
     sorted_frameworks = Array.new
 
@@ -52,7 +52,7 @@ class ScrappleArticles < Kimurai::Base
 
     # Begin crawl
     if scrape_test_only == 1
-      test_data = sorted_frameworks.select { |data| data["name"] == "UIKit" }[0]
+      test_data = sorted_frameworks.select { |data| data["name"] == "MetricKit" }[0]
       if test_data.empty? == false 
         request_to :parse_framework, url: test_data["href_json"].to_s, data: { name: test_data["name"] }
       end
@@ -63,7 +63,7 @@ class ScrappleArticles < Kimurai::Base
     end
 
     rescue StandardError => e
-        puts "There is failed request (#{e.inspect}), skipping it..."
+        puts "There is failed request (#{e.inspect}) at #{e.backtrace}, skipping it..."
   end
 
   def parse_framework(response, url:, data: {})
@@ -74,37 +74,62 @@ class ScrappleArticles < Kimurai::Base
 
     # Parse out response json, strip uselss keys
     framework_json = (JSON.parse(response.css("div#json")[0])["references"] || {})
+    framework_metadata = (JSON.parse(response.css("div#json")[0])["metadata"] || {})
     stripped_keys = framework_json.map { |k,v| v }
 
-    # Append to current json
-    file_name = sanitize_filename f_name
-    current_json = File.read("articles_#{file_name}.json")
-    framework_hash = JSON.parse(current_json)
+    # Ensure we're in the right framework still, some articles branch out to other ones
+    is_right_framework = (framework_metadata["title"] || "") == f_name 
+    if is_right_framework == false && framework_metadata.key?("modules") == true
+      if framework_metadata["modules"][0] != nil
+        modules = framework_metadata["modules"][0]
+        if modules["name"] == f_name 
+          is_right_framework = true 
+        end
+      end
+    end
+
+    if is_right_framework == false 
+      puts "⛔️ Wrong #{framework_metadata} for #{f_name} at #{url}"
+      return
+    end
 
     # Find any existing articles on this page
-    symbols = stripped_keys.select { |symbol| (symbol["kind"] || "").downcase == "article" }
-    symbols.each do |symbol|
-      next unless (symbol["title"] || "") != "" && symbol["title"] != f_name
+    articles = stripped_keys.select { |x| (x["role"] || "").downcase == "article" }
+    articles.each do |symbol|
+      next unless (symbol["kind"] || "").downcase == "article"
+
+      # Save back to json
+      file_name = sanitize_filename f_name
+      current_json = File.read("articles_#{file_name}.json")
+      framework_hash = JSON.parse(current_json)
       framework_hash["articles"][symbol["title"]] = symbol
+      File.write("articles_#{file_name}.json", JSON.dump(framework_hash))
 
       # They might have articles within articles
-      puts "🗞 -> 🔎 -> #{f_name} checking articles in article to #{symbol["url"].to_s}"
-      request_to :parse_framework, url: 'https://developer.apple.com/tutorials/data' + symbol["url"].to_s + '.json', data: { name: f_name }
-    end 
-
-    # Save back to json
-    File.write("articles_#{file_name}.json", JSON.dump(framework_hash))
+      if symbol.key?("url")
+          #puts "🗞 -> 🔎 -> Checking for more articles at #{symbol["url"].to_s}"
+          request_to :parse_framework, url: 'https://developer.apple.com/tutorials/data' + symbol["url"].to_s + '.json', data: { name: f_name }
+      end
+    end
 
     # Crawl collectionGroup recursively
     collection_groups = stripped_keys.select { |cg| (cg["role"] || "").downcase == "collectiongroup" }
-    collection_groups.each do |cg|
+    if collection_groups != nil
+      collection_groups.each do |cg|
       next unless (cg["url"] || "") != ""
-      puts "🔎 -> #{f_name} to #{cg["url"].to_s}"
-      request_to :parse_framework, url: 'https://developer.apple.com/tutorials/data' + cg["url"].to_s + '.json', data: { name: f_name }
+
+      # Now ensure it's in the right module
+      if is_right_framework
+        puts "🔎 -> #{f_name} has a collection group at #{cg["url"].to_s}"
+        request_to :parse_framework, url: 'https://developer.apple.com/tutorials/data' + cg["url"].to_s + '.json', data: { name: f_name }
+      else          
+        puts "↩ Moving along, this collection group isn't part of the module (#{cg["url"]}"
+      end 
     end 
+    end
 
     rescue StandardError => e
-        puts "\n\nThere is failed request to #{f_name} - " + url.to_s + " (#{e.inspect}), skipping it...\n\n"
+      puts "\n\n🚨 There is failed request to #{f_name} - " + url.to_s + " (#{e.inspect}) at #{e.backtrace}, skipping it...\n\n"
   end
 
   def sanitize_filename(filename)
