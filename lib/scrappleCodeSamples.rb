@@ -96,10 +96,6 @@ class ScrappleCodeSamples < Kimurai::Base
     # Find any existing articles on this page, they might have code samples linked
     articles = stripped_keys.select { |x| (x["kind"] || "").downcase == "article" }
     articles.each do |symbol|
-      
-      if symbol["title"] == "Detecting Changes in the Preferences Window"
-        puts "\n\n\n🚨 FOUND IT:\n#{symbol.inspect}\n\n\n"
-      end
       # Save back to json
       if (symbol["role"] || "").downcase == "samplecode"
         file_name = sanitize_filename f_name
@@ -113,6 +109,19 @@ class ScrappleCodeSamples < Kimurai::Base
       if symbol.key?("url")
         clean_url = symbol["url"].gsub(/[#\d]/,"")
         request_to :parse_framework, url: 'https://developer.apple.com/tutorials/data' + clean_url + '.json', data: { name: f_name }
+      end
+    end
+
+    # Also get the new spiffy tutorials
+    modern_tuts = stripped_keys.select { |x| (x["kind"] || "").downcase == "overview" }
+    modern_tuts.each do |symbol|
+      # Save back to json
+      if (symbol["role"] || "").downcase == "overview"
+        file_name = sanitize_filename f_name
+        current_json = File.read("Apple Crawl Data/Code Samples/#{file_name}.json")
+        framework_hash = JSON.parse(current_json)
+        framework_hash["code"][symbol["title"]] = symbol
+        File.write("Apple Crawl Data/Code Samples/#{file_name}.json", JSON.dump(framework_hash))
       end
     end
 
