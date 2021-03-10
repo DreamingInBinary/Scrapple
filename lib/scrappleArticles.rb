@@ -42,12 +42,13 @@ class ScrappleArticles < Kimurai::Base
     end
 
     # Sort them by name
+    FileUtils.mkdir_p 'Apple Crawl Data'
     frameworks_hash = {}
     sorted_frameworks.sort_by! { |topic| topic["name"].downcase }
     sorted_frameworks.each do |f|
       file_name = sanitize_filename "articles_#{f["name"]}"
       f_hash = {"articles":{}}
-      File.write("#{file_name}.json", JSON.dump(f_hash))
+      File.write("Apple Crawl Data/#{file_name}.json", JSON.dump(f_hash))
     end
 
     # Begin crawl
@@ -100,10 +101,10 @@ class ScrappleArticles < Kimurai::Base
 
       # Save back to json
       file_name = sanitize_filename f_name
-      current_json = File.read("articles_#{file_name}.json")
+      current_json = File.read("Apple Crawl Data/articles_#{file_name}.json")
       framework_hash = JSON.parse(current_json)
       framework_hash["articles"][symbol["title"]] = symbol
-      File.write("articles_#{file_name}.json", JSON.dump(framework_hash))
+      File.write("Apple Crawl Data/articles_#{file_name}.json", JSON.dump(framework_hash))
 
       # They might have articles within articles
       if symbol.key?("url")
@@ -116,13 +117,8 @@ class ScrappleArticles < Kimurai::Base
       collection_groups.each do |cg|
       next unless (cg["url"] || "") != ""
 
-      # Now ensure it's in the right module
-      if is_right_framework
-        puts "🔎 -> #{f_name} has a collection group at #{cg["url"].to_s}"
-        request_to :parse_framework, url: 'https://developer.apple.com/tutorials/data' + cg["url"].to_s + '.json', data: { name: f_name }
-      else          
-        puts "↩ Moving along, this collection group isn't part of the module (#{cg["url"]}"
-      end 
+      puts "🔎 -> #{f_name} has a collection group at #{cg["url"].to_s}"
+      request_to :parse_framework, url: 'https://developer.apple.com/tutorials/data' + cg["url"].to_s + '.json', data: { name: f_name }
     end
 
     rescue StandardError => e
