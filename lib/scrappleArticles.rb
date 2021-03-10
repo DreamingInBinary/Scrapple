@@ -107,14 +107,12 @@ class ScrappleArticles < Kimurai::Base
 
       # They might have articles within articles
       if symbol.key?("url")
-          #puts "🗞 -> 🔎 -> Checking for more articles at #{symbol["url"].to_s}"
           request_to :parse_framework, url: 'https://developer.apple.com/tutorials/data' + symbol["url"].to_s + '.json', data: { name: f_name }
       end
     end
 
     # Crawl collectionGroup recursively
     collection_groups = stripped_keys.select { |cg| (cg["role"] || "").downcase == "collectiongroup" }
-    if collection_groups != nil
       collection_groups.each do |cg|
       next unless (cg["url"] || "") != ""
 
@@ -125,7 +123,6 @@ class ScrappleArticles < Kimurai::Base
       else          
         puts "↩ Moving along, this collection group isn't part of the module (#{cg["url"]}"
       end 
-    end 
     end
 
     rescue StandardError => e
