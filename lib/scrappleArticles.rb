@@ -48,12 +48,15 @@ class ScrappleArticles < Kimurai::Base
     sorted_frameworks.each do |f|
       file_name = sanitize_filename "articles_#{f["name"]}"
       f_hash = {"articles":{}}
-      File.write("Apple Crawl Data/#{file_name}.json", JSON.dump(f_hash))
+
+      if File.exist?("Apple Crawl Data/#{file_name}.json") == false
+        File.write("Apple Crawl Data/#{file_name}.json", JSON.dump(f_hash))
+      end
     end
 
     # Begin crawl
     if scrape_test_only == 1
-      test_data = sorted_frameworks.select { |data| data["name"] == "MetricKit" }[0]
+      test_data = sorted_frameworks.select { |data| data["name"] == "CloudKit" }[0]
       if test_data.empty? == false 
         request_to :parse_framework, url: test_data["href_json"].to_s, data: { name: test_data["name"] }
       end
