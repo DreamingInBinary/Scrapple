@@ -9,8 +9,8 @@ require 'nokogiri'
 require 'odyssey'
 require 'json'
 
-# Get all of all Apple's articles from their docs.
-class ScrappleArticles < Kimurai::Base
+# Get all of all Apple's code samples from their docs.
+class ScrappleCodeSamples < Kimurai::Base
   @engine = :selenium_firefox
   @start_urls = ['https://developer.apple.com/tutorials/data/documentation/technologies.json']
   @config = {
@@ -20,7 +20,6 @@ class ScrappleArticles < Kimurai::Base
   }
   
   def parse(response, url:, data: {})
-    
     scrape_test_only = 1
     framework_data = JSON.parse(response.css("div#json")[0])["references"]
     sorted_frameworks = Array.new
@@ -39,21 +38,21 @@ class ScrappleArticles < Kimurai::Base
     end
 
     # Sort them by name
-    FileUtils.mkdir_p 'Apple Crawl Data/Articles/'
+    FileUtils.mkdir_p 'Apple Crawl Data/Code Samples/'
     frameworks_hash = {}
     sorted_frameworks.sort_by! { |topic| topic["name"].downcase }
     sorted_frameworks.each do |f|
       file_name = sanitize_filename "#{f["name"]}"
-      f_hash = {"articles":{}}
+      f_hash = {"code":{}}
 
-      if File.exist?("Apple Crawl Data/Articles/#{file_name}.json") == false
-        File.write("Apple Crawl Data/Articles/#{file_name}.json", JSON.dump(f_hash))
+      if File.exist?("Apple Crawl Data/Code Samples/#{file_name}.json") == false
+        File.write("Apple Crawl Data/Code Samples/#{file_name}.json", JSON.dump(f_hash))
       end
     end
 
     # Begin crawl
     if scrape_test_only == 1
-      test_data = sorted_frameworks.select { |data| data["name"] == "Accelerate" }[0]
+      test_data = sorted_frameworks.select { |data| data["name"] == "UIKit" }[0]
       if test_data.empty? == false 
         request_to :parse_framework, url: test_data["href_json"].to_s, data: { name: test_data["name"] }
       end
@@ -94,21 +93,26 @@ class ScrappleArticles < Kimurai::Base
       return
     end
 
-    # Find any existing articles on this page
-    articles = stripped_keys.select { |x| (x["role"] || "").downcase == "article" }
+    # Find any existing articles on this page, they might have code samples linked
+    articles = stripped_keys.select { |x| (x["kind"] || "").downcase == "article" }
     articles.each do |symbol|
-      next unless (symbol["kind"] || "").downcase == "article"
-
+      
+      if symbol["title"] == "Detecting Changes in the Preferences Window"
+        puts "\n\n\n🚨 FOUND IT:\n#{symbol.inspect}\n\n\n"
+      end
       # Save back to json
-      file_name = sanitize_filename f_name
-      current_json = File.read("Apple Crawl Data/Articles/#{file_name}.json")
-      framework_hash = JSON.parse(current_json)
-      framework_hash["articles"][symbol["title"]] = symbol
-      File.write("Apple Crawl Data/Articles/#{file_name}.json", JSON.dump(framework_hash))
+      if (symbol["role"] || "").downcase == "samplecode"
+        file_name = sanitize_filename f_name
+        current_json = File.read("Apple Crawl Data/Code Samples/#{file_name}.json")
+        framework_hash = JSON.parse(current_json)
+        framework_hash["code"][symbol["title"]] = symbol
+        File.write("Apple Crawl Data/Code Samples/#{file_name}.json", JSON.dump(framework_hash))
+      end
 
       # They might have articles within articles
       if symbol.key?("url")
-          request_to :parse_framework, url: 'https://developer.apple.com/tutorials/data' + symbol["url"].to_s + '.json', data: { name: f_name }
+        clean_url = symbol["url"].gsub(/[#\d]/,"")
+        request_to :parse_framework, url: 'https://developer.apple.com/tutorials/data' + clean_url + '.json', data: { name: f_name }
       end
     end
 
@@ -122,7 +126,7 @@ class ScrappleArticles < Kimurai::Base
     end
 
     rescue StandardError => e
-      puts "\n\n🚨 There is failed request to #{f_name} - " + url.to_s + " (#{e.inspect}) at #{e.backtrace}, skipping it...\n\n"
+      puts "\n\n🚨 There is failed request to #{f_name} - " + url.to_s + " (#{e.inspect}), skipping it...\n\n"
   end
 
   def sanitize_filename(filename)
@@ -131,4 +135,4 @@ class ScrappleArticles < Kimurai::Base
   
 end
 
-ScrappleArticles.crawl!
+ScrappleCodeSamples.crawl!
