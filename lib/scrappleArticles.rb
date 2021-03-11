@@ -40,6 +40,8 @@ class ScrappleArticles < Kimurai::Base
 
     # Sort them by name
     FileUtils.mkdir_p 'Apple Crawl Data/Articles/'
+    FileUtils.mkdir_p 'Apple Crawl Data/Empty Aricles/'
+
     frameworks_hash = {}
     sorted_frameworks.sort_by! { |topic| topic["name"].downcase }
     sorted_frameworks.each do |f|
@@ -128,6 +130,25 @@ class ScrappleArticles < Kimurai::Base
 
   def sanitize_filename(filename)
     filename.gsub(/[^0-9A-z.\-]/, '_')
+  end
+
+  def self.close_spider
+    Dir.foreach('Apple Crawl Data/Code Samples/') do |filename|
+      next if filename == '.' or filename == '..' or filename == 'Empty Aricles'
+      current_json = File.read("Apple Crawl Data/Code Samples/#{filename}")
+      framework_hash = JSON.parse(current_json)
+      
+      if framework_hash['code'].empty?
+        puts "#{filename} is empty, moving it."
+
+        source = "Apple Crawl Data/Code Samples/#{filename}"
+        new_dest = "Apple Crawl Data/Empty Aricles/#{filename}"
+        FileUtils.move source, new_dest
+      end
+
+      rescue StandardError => e
+        puts "\n\n💀 Couldn't open up #{filename}"
+    end
   end
   
 end

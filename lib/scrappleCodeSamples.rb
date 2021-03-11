@@ -18,7 +18,7 @@ class ScrappleCodeSamples < Kimurai::Base
   }
   
   def parse(response, url:, data: {})
-    test_framework = "DeviceCheck"
+    test_framework = "VisionKit"
     scrape_test_only = 1
     framework_data = JSON.parse(response.css("div#json")[0])["references"]
     sorted_frameworks = Array.new
@@ -38,6 +38,8 @@ class ScrappleCodeSamples < Kimurai::Base
 
     # Sort them by name
     FileUtils.mkdir_p 'Apple Crawl Data/Code Samples/'
+    FileUtils.mkdir_p 'Apple Crawl Data/Empty Code Samples/'
+
     sorted_frameworks.sort_by! { |topic| topic["name"].downcase }
     sorted_frameworks.each do |f|
       file_name = sanitize_filename "#{f["name"]}"
@@ -142,7 +144,22 @@ class ScrappleCodeSamples < Kimurai::Base
   end
 
   def self.close_spider
-    logger.info "> Stopped!"
+    Dir.foreach('Apple Crawl Data/Code Samples/') do |filename|
+      next if filename == '.' or filename == '..' or filename == 'Empty Aricles'
+      current_json = File.read("Apple Crawl Data/Code Samples/#{filename}")
+      framework_hash = JSON.parse(current_json)
+      
+      if framework_hash['code'].empty?
+        puts "#{filename} is empty, moving it."
+
+        source = "Apple Crawl Data/Code Samples/#{filename}"
+        new_dest = "Apple Crawl Data/Empty Code Samples/'#{filename}"
+        FileUtils.move source, new_dest
+      end
+
+      rescue StandardError => e
+        puts "\n\n💀 Couldn't open up #{filename}"
+    end
   end
   
 end
