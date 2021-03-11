@@ -18,7 +18,8 @@ class ScrappleCodeSamples < Kimurai::Base
   }
   
   def parse(response, url:, data: {})
-    scrape_test_only = 0
+    test_framework = "DeviceCheck"
+    scrape_test_only = 1
     framework_data = JSON.parse(response.css("div#json")[0])["references"]
     sorted_frameworks = Array.new
 
@@ -49,7 +50,7 @@ class ScrappleCodeSamples < Kimurai::Base
 
     # Begin crawl
     if scrape_test_only == 1
-      test_data = sorted_frameworks.select { |data| data["name"] == "App Clips" }[0]
+      test_data = sorted_frameworks.select { |data| data["name"] == test_framework }[0]
       if test_data.empty? == false 
         request_to :parse_framework, url: test_data["href_json"].to_s, data: { name: test_data["name"] }
       end
@@ -61,7 +62,7 @@ class ScrappleCodeSamples < Kimurai::Base
     end
 
     rescue StandardError => e
-        puts "There is failed request (#{e.inspect}) at #{e.backtrace}, skipping it..."
+        puts "There is a failed request (#{e.inspect}) at #{e.backtrace}."
   end
 
   def parse_framework(response, url:, data: {})
@@ -138,6 +139,10 @@ class ScrappleCodeSamples < Kimurai::Base
 
   def sanitize_filename(filename)
     filename.gsub(/[^0-9A-z.\-]/, '_')
+  end
+
+  def self.close_spider
+    logger.info "> Stopped!"
   end
   
 end
