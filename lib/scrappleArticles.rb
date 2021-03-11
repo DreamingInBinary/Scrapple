@@ -20,8 +20,7 @@ class ScrappleArticles < Kimurai::Base
   }
   
   def parse(response, url:, data: {})
-    
-    scrape_test_only = 1
+    scrape_test_only = 0
     framework_data = JSON.parse(response.css("div#json")[0])["references"]
     sorted_frameworks = Array.new
 
@@ -53,12 +52,13 @@ class ScrappleArticles < Kimurai::Base
 
     # Begin crawl
     if scrape_test_only == 1
-      test_data = sorted_frameworks.select { |data| data["name"] == "Accelerate" }[0]
+      test_data = sorted_frameworks.select { |data| data["name"] == "Apple Search Ads" }[0]
       if test_data.empty? == false 
         request_to :parse_framework, url: test_data["href_json"].to_s, data: { name: test_data["name"] }
       end
     else
       sorted_frameworks.each do |current_framework|
+        sleep 1
         request_to :parse_framework, url: current_framework["href_json"].to_s, data: { name: current_framework["name"] }
       end
     end

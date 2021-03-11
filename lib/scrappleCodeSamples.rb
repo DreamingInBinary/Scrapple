@@ -1,5 +1,3 @@
-# frozen_string_literal: true
-
 require 'open-uri'
 require 'fileutils'
 require 'net/http'
@@ -20,7 +18,7 @@ class ScrappleCodeSamples < Kimurai::Base
   }
   
   def parse(response, url:, data: {})
-    scrape_test_only = 1
+    scrape_test_only = 0
     framework_data = JSON.parse(response.css("div#json")[0])["references"]
     sorted_frameworks = Array.new
 
@@ -39,7 +37,6 @@ class ScrappleCodeSamples < Kimurai::Base
 
     # Sort them by name
     FileUtils.mkdir_p 'Apple Crawl Data/Code Samples/'
-    frameworks_hash = {}
     sorted_frameworks.sort_by! { |topic| topic["name"].downcase }
     sorted_frameworks.each do |f|
       file_name = sanitize_filename "#{f["name"]}"
@@ -52,12 +49,13 @@ class ScrappleCodeSamples < Kimurai::Base
 
     # Begin crawl
     if scrape_test_only == 1
-      test_data = sorted_frameworks.select { |data| data["name"] == "UIKit" }[0]
+      test_data = sorted_frameworks.select { |data| data["name"] == "App Clips" }[0]
       if test_data.empty? == false 
         request_to :parse_framework, url: test_data["href_json"].to_s, data: { name: test_data["name"] }
       end
     else
       sorted_frameworks.each do |current_framework|
+        sleep 1
         request_to :parse_framework, url: current_framework["href_json"].to_s, data: { name: current_framework["name"] }
       end
     end
@@ -70,9 +68,9 @@ class ScrappleCodeSamples < Kimurai::Base
     # Get all role:symbol
     # Get all role:collectionGroup to deep search
     f_name = data[:name]
+
     puts "🚀 for the #{f_name} framework..."
 
-    # Parse out response json, strip uselss keys
     framework_json = (JSON.parse(response.css("div#json")[0])["references"] || {})
     framework_metadata = (JSON.parse(response.css("div#json")[0])["metadata"] || {})
     stripped_keys = framework_json.map { |k,v| v }
