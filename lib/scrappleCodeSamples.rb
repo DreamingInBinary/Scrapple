@@ -145,7 +145,7 @@ class ScrappleCodeSamples < Kimurai::Base
 
   def self.close_spider
     Dir.foreach('Apple Crawl Data/Code Samples/') do |filename|
-      next if filename == '.' or filename == '..' or filename == 'Empty Aricles'
+      next if filename.include?("json") == false
       current_json = File.read("Apple Crawl Data/Code Samples/#{filename}")
       framework_hash = JSON.parse(current_json)
       
@@ -153,7 +153,7 @@ class ScrappleCodeSamples < Kimurai::Base
         puts "#{filename} is empty, moving it."
 
         source = "Apple Crawl Data/Code Samples/#{filename}"
-        new_dest = "Apple Crawl Data/Empty Code Samples/'#{filename}"
+        new_dest = "Apple Crawl Data/Empty Code Samples/#{filename}"
         FileUtils.move source, new_dest
       end
 

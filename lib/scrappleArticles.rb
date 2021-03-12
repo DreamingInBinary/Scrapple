@@ -40,7 +40,7 @@ class ScrappleArticles < Kimurai::Base
 
     # Sort them by name
     FileUtils.mkdir_p 'Apple Crawl Data/Articles/'
-    FileUtils.mkdir_p 'Apple Crawl Data/Empty Aricles/'
+    FileUtils.mkdir_p 'Apple Crawl Data/Empty Articles/'
 
     frameworks_hash = {}
     sorted_frameworks.sort_by! { |topic| topic["name"].downcase }
@@ -133,16 +133,16 @@ class ScrappleArticles < Kimurai::Base
   end
 
   def self.close_spider
-    Dir.foreach('Apple Crawl Data/Code Samples/') do |filename|
-      next if filename == '.' or filename == '..' or filename == 'Empty Aricles'
-      current_json = File.read("Apple Crawl Data/Code Samples/#{filename}")
+    Dir.foreach('Apple Crawl Data/Articles/') do |filename|
+      next if filename.include?("json") == false
+      current_json = File.read("Apple Crawl Data/Articles/#{filename}")
       framework_hash = JSON.parse(current_json)
       
-      if framework_hash['code'].empty?
+      if framework_hash['articles'].empty?
         puts "#{filename} is empty, moving it."
 
-        source = "Apple Crawl Data/Code Samples/#{filename}"
-        new_dest = "Apple Crawl Data/Empty Aricles/#{filename}"
+        source = "Apple Crawl Data/Articles/#{filename}"
+        new_dest = "Apple Crawl Data/Empty Articles/#{filename}"
         FileUtils.move source, new_dest
       end
 
