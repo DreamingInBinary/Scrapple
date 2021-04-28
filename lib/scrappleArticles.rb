@@ -20,8 +20,8 @@ class ScrappleArticles < Kimurai::Base
   }
   
   def parse(response, url:, data: {})
-    test_framework = "VisionKit"
-    scrape_test_only = 1
+    test_framework = "Xcode"
+    scrape_test_only = 0
     framework_data = JSON.parse(response.css("div#json")[0])["references"]
     sorted_frameworks = Array.new
 
@@ -39,8 +39,12 @@ class ScrappleArticles < Kimurai::Base
     end
 
     # Sort them by name
-    FileUtils.mkdir_p 'Apple Crawl Data/Articles/'
-    FileUtils.mkdir_p 'Apple Crawl Data/Empty Articles/'
+    if Dir.exist?('Apple Crawl Data/Articles/') == false 
+      FileUtils.mkdir_p 'Apple Crawl Data/Articles/'
+    end 
+    if Dir.exist?('Apple Crawl Data/Empty Articles/') == false 
+      FileUtils.mkdir_p 'Apple Crawl Data/Empty Articles/'
+    end 
 
     frameworks_hash = {}
     sorted_frameworks.sort_by! { |topic| topic["name"].downcase }
@@ -48,8 +52,8 @@ class ScrappleArticles < Kimurai::Base
       file_name = sanitize_filename "#{f["name"]}"
       f_hash = {"articles":{}}
 
-      if File.exist?("Apple Crawl Data/Articles/#{file_name}.json") == false
-        File.write("Apple Crawl Data/Articles/#{file_name}.json", JSON.dump(f_hash))
+      if File.exist?("Documents/Projects/Swiftjective-C/_data/Apple Crawl Data/Articles/#{file_name}.json") == false
+        File.write("Documents/Projects/Swiftjective-C/_data/Apple Crawl Data/Articles/#{file_name}.json", JSON.pretty_generate(f_hash))
       end
     end
 
@@ -104,10 +108,10 @@ class ScrappleArticles < Kimurai::Base
 
       # Save back to json
       file_name = sanitize_filename f_name
-      current_json = File.read("Apple Crawl Data/Articles/#{file_name}.json")
+      current_json = File.read("Documents/Projects/Swiftjective-C/_data/Apple Crawl Data/Articles/#{file_name}.json")
       framework_hash = JSON.parse(current_json)
       framework_hash["articles"][symbol["title"]] = symbol
-      File.write("Apple Crawl Data/Articles/#{file_name}.json", JSON.dump(framework_hash))
+      File.write("Documents/Projects/Swiftjective-C/_data/Apple Crawl Data/Articles/#{file_name}.json", JSON.pretty_generate(framework_hash))
 
       # They might have articles within articles
       if symbol.key?("url")
@@ -135,14 +139,14 @@ class ScrappleArticles < Kimurai::Base
   def self.close_spider
     Dir.foreach('Apple Crawl Data/Articles/') do |filename|
       next if filename.include?("json") == false
-      current_json = File.read("Apple Crawl Data/Articles/#{filename}")
+      current_json = File.read("Documents/Projects/Swiftjective-C/_data/Apple Crawl Data/Articles/#{filename}")
       framework_hash = JSON.parse(current_json)
       
       if framework_hash['articles'].empty?
         puts "#{filename} is empty, moving it."
 
-        source = "Apple Crawl Data/Articles/#{filename}"
-        new_dest = "Apple Crawl Data/Empty Articles/#{filename}"
+        source = "Documents/Projects/Swiftjective-C/_data/Apple Crawl Data/Articles/#{filename}"
+        new_dest = "Documents/Projects/Swiftjective-C/_data/Apple Crawl Data/Empty Articles/#{filename}"
         FileUtils.move source, new_dest
       end
 

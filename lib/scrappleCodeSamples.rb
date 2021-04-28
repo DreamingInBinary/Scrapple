@@ -18,8 +18,8 @@ class ScrappleCodeSamples < Kimurai::Base
   }
   
   def parse(response, url:, data: {})
-    test_framework = "VisionKit"
-    scrape_test_only = 1
+    test_framework = "UIKit"
+    scrape_test_only = 0
     framework_data = JSON.parse(response.css("div#json")[0])["references"]
     sorted_frameworks = Array.new
 
@@ -37,16 +37,20 @@ class ScrappleCodeSamples < Kimurai::Base
     end
 
     # Sort them by name
-    FileUtils.mkdir_p 'Apple Crawl Data/Code Samples/'
-    FileUtils.mkdir_p 'Apple Crawl Data/Empty Code Samples/'
+    if Dir.exist?('Apple Crawl Data/Code Samples/') == false 
+      FileUtils.mkdir_p 'Apple Crawl Data/Code Samples/'
+    end 
+    if Dir.exist?('Apple Crawl Data/Empty Code Samples/') == false 
+      FileUtils.mkdir_p 'Apple Crawl Data/Empty Code Samples/'
+    end 
 
     sorted_frameworks.sort_by! { |topic| topic["name"].downcase }
     sorted_frameworks.each do |f|
       file_name = sanitize_filename "#{f["name"]}"
       f_hash = {"code":{}}
 
-      if File.exist?("Apple Crawl Data/Code Samples/#{file_name}.json") == false
-        File.write("Apple Crawl Data/Code Samples/#{file_name}.json", JSON.dump(f_hash))
+      if File.exist?("Documents/Projects/Swiftjective-C/_data/Apple Crawl Data/Code Samples/#{file_name}.json") == false
+        File.write("Documents/Projects/Swiftjective-C/_data/Apple Crawl Data/Code Samples/#{file_name}.json", JSON.pretty_generate(f_hash))
       end
     end
 
@@ -100,10 +104,10 @@ class ScrappleCodeSamples < Kimurai::Base
       # Save back to json
       if (symbol["role"] || "").downcase == "samplecode"
         file_name = sanitize_filename f_name
-        current_json = File.read("Apple Crawl Data/Code Samples/#{file_name}.json")
+        current_json = File.read("Documents/Projects/Swiftjective-C/_data/Apple Crawl Data/Code Samples/#{file_name}.json")
         framework_hash = JSON.parse(current_json)
         framework_hash["code"][symbol["title"]] = symbol
-        File.write("Apple Crawl Data/Code Samples/#{file_name}.json", JSON.dump(framework_hash))
+        File.write("Documents/Projects/Swiftjective-C/_data/Apple Crawl Data/Code Samples/#{file_name}.json", JSON.pretty_generate(framework_hash))
       end
 
       # They might have articles within articles
@@ -119,10 +123,10 @@ class ScrappleCodeSamples < Kimurai::Base
       # Save back to json
       if (symbol["role"] || "").downcase == "overview"
         file_name = sanitize_filename f_name
-        current_json = File.read("Apple Crawl Data/Code Samples/#{file_name}.json")
+        current_json = File.read("Documents/Projects/Swiftjective-C/_data/Apple Crawl Data/Code Samples/#{file_name}.json")
         framework_hash = JSON.parse(current_json)
         framework_hash["code"][symbol["title"]] = symbol
-        File.write("Apple Crawl Data/Code Samples/#{file_name}.json", JSON.dump(framework_hash))
+        File.write("Documents/Projects/Swiftjective-C/_data/Apple Crawl Data/Code Samples/#{file_name}.json", JSON.pretty_generate(framework_hash))
       end
     end
 
@@ -144,16 +148,16 @@ class ScrappleCodeSamples < Kimurai::Base
   end
 
   def self.close_spider
-    Dir.foreach('Apple Crawl Data/Code Samples/') do |filename|
+    Dir.foreach('/Users/jordanmorgan/Documents/Projects/Swiftjective-C/_data/Apple Crawl Data/Code Samples/') do |filename|
       next if filename.include?("json") == false
-      current_json = File.read("Apple Crawl Data/Code Samples/#{filename}")
+      current_json = File.read("/Users/jordanmorgan/Documents/Projects/Swiftjective-C/_data/Apple Crawl Data/Code Samples/#{filename}")
       framework_hash = JSON.parse(current_json)
       
       if framework_hash['code'].empty?
         puts "#{filename} is empty, moving it."
 
-        source = "Apple Crawl Data/Code Samples/#{filename}"
-        new_dest = "Apple Crawl Data/Empty Code Samples/#{filename}"
+        source = "Documents/Projects/Swiftjective-C/_data/Apple Crawl Data/Code Samples/#{filename}"
+        new_dest = "Documents/Projects/Swiftjective-C/_data/Apple Crawl Data/Empty Code Samples/#{filename}"
         FileUtils.move source, new_dest
       end
 
@@ -161,7 +165,4 @@ class ScrappleCodeSamples < Kimurai::Base
         puts "\n\n💀 Couldn't open up #{filename}"
     end
   end
-  
 end
-
-ScrappleCodeSamples.crawl!
